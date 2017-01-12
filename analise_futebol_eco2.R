@@ -49,14 +49,15 @@ summary(gols_visitante)
 
 base_dados = subset(base_dados, !is.na(pagante))
 base_dados$tempo = 100*base_dados$ano + 2*base_dados$rodada
+base_dados$vs = as.factor(paste(base_dados$clubem,base_dados$clubev))
 
 # Renda Liquida
 # Efeito Aleatório
-regVolR = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico , data = base_dados, index = c("clubem", "tempo"), model = "random", na.action = na.omit)
+regVolR = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico + jg_fds + ingresso_vendido, data = base_dados, index = c("clubem", "tempo"), model = "random", na.action = na.omit)
 summary(regVolR)
 
 # Efeito fixo
-regVolW = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados,index = c("clubem", "tempo"), model = "within")
+regVolW = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico + jg_fds + ingresso_vendido, data = base_dados,index = c("clubem", "tempo"), model = "within")
 summary(regVolW)
 
 # Pagante
@@ -68,5 +69,22 @@ summary(regVolR)
 regVolW = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados,index = c("clubem", "tempo"), model = "within")
 summary(regVolW)
 
+# Ocupacao
+# Efeito Aleatório
+regVolR = plm(log(ingresso_vendido) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados, index = c("clubem", "tempo"), model = "random", na.action = na.omit)
+summary(regVolR)
+
+# Efeito fixo
+regVolW = plm(log(ingresso_vendido) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados,index = c("clubem", "tempo"), model = "within")
+summary(regVolW)
+
+## O Jogo como individuo
+# Efeito Aleatório
+regVolR = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido, data = base_dados, index = c("vs", "ano"), model = "random", na.action = na.omit)
+summary(regVolR)
+
+# Efeito fixo
+regVolW = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + jg_fds + ingresso_vendido, data = base_dados,index = c("vs", "tempo"), model = "within")
+summary(regVolW)
 
 ## 
