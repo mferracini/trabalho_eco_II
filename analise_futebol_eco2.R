@@ -73,14 +73,6 @@ base_dados$vs = as.factor(paste(base_dados$clubem,base_dados$clubev))
 base_dados$rod_time = as.factor(paste(base_dados$clubem,base_dados$rodada))
 base_dados_painel = subset(base_dados, !is.na(pagante))
 
-# Renda Liquida
-# Efeito Aleatório
-#regVolR = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico + jg_fds + ingresso_vendido, data = base_dados, index = c("clubem", "tempo"), model = "random", na.action = na.omit)
-#summary(regVolR)
-
-# Efeito fixo
-#regVolW = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico + jg_fds + ingresso_vendido, data = base_dados,index = c("clubem", "tempo"), model = "within")
-#summary(regVolW)
 
 # Pagante
 # Efeito Aleatório
@@ -130,5 +122,6 @@ h_test_pgt <- phtest(regVolW_pgt,regVolR_pgt)
 ##  probit/logit ordenado para calcular probabilidades de resultado
 ##tabela com resultados descritivos
 table(base_dados$resultado_time_mandante)
+
 
 
