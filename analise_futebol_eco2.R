@@ -8,7 +8,7 @@ for (i in biblio){
   if (!require(i, character.only = TRUE)) {
     warning(paste("Instalando: ", i))
     install.packages(i)
-    }
+  }
   library(i, character.only = TRUE)
 }
 
@@ -36,55 +36,92 @@ View(base_dados)
 base_dados$diff_posicao_mandante  =  base_dados$mandante_posicao_inicio_rodada - base_dados$Visitante_posicao_inicio_rodada
 base_dados$diff_posicao_visitante = -base_dados$diff_posicao_mandante
 
-# Modelos
+#graficos para visualizar a distribuição de gols
+grf_gols_mandante <- hist(base_dados$placarm_tn)
+grf_gols_visitante <- hist(base_dados$placarv_tn)
+grf_gols_partida <- hist(base_dados$gs_partida)
+
+# Modelos de contagem para numero de gols
+#poisson
 gols_mandante<- glm(placarm_tn ~ diff_posicao_mandante + clássico + pagante, data = base_dados , family = poisson())
 summary(gols_mandante)
 
 gols_visitante <- glm(placarv_tn ~ diff_posicao_visitante + clássico + pagante, data = base_dados , family = poisson())
 summary(gols_visitante)
 
+#modelos inflado em zero
+
+gols_mandante_infl<- zeroinfl(placarm_tn ~ diff_posicao_mandante , data = base_dados)
+summary(gols_mandante_infl)
+
+gols_visitante_infl <- zeroinfl(placarv_tn ~ diff_posicao_visitante , data = base_dados)
+summary(gols_visitante_infl)
+
+#binomial negativa
+gols_mandante_nb<- glm.nb(placarm_tn ~ diff_posicao_mandante , data = base_dados)
+summary(gols_mandante_nb)
+
+gols_visitante_nb <- glm.nb(placarv_tn ~ diff_posicao_visitante , data = base_dados)
+summary(gols_visitante_nb)
+
 
 
 # Modelo de dados em painel para renda e público
-
-base_dados = subset(base_dados, !is.na(pagante))
+base_dados$ticket_medio = base_dados$renda_bruta / base_dados$pagante
 base_dados$tempo = 100*base_dados$ano + 2*base_dados$rodada
 base_dados$vs = as.factor(paste(base_dados$clubem,base_dados$clubev))
+base_dados$rod_time = as.factor(paste(base_dados$clubem,base_dados$rodada))
+base_dados_painel = subset(base_dados, !is.na(pagante))
 
-# Renda Liquida
-# Efeito Aleatório
-regVolR = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico + jg_fds + ingresso_vendido, data = base_dados, index = c("clubem", "tempo"), model = "random", na.action = na.omit)
-summary(regVolR)
-
-# Efeito fixo
-regVolW = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico + jg_fds + ingresso_vendido, data = base_dados,index = c("clubem", "tempo"), model = "within")
-summary(regVolW)
 
 # Pagante
 # Efeito Aleatório
-regVolR = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados, index = c("clubem", "tempo"), model = "random", na.action = na.omit)
-summary(regVolR)
+#regVolR = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados, index = c("clubem", "tempo"), model = "random", na.action = na.omit)
+#summary(regVolR)
 
 # Efeito fixo
-regVolW = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados,index = c("clubem", "tempo"), model = "within")
-summary(regVolW)
+#regVolW = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados,index = c("clubem", "tempo"), model = "within")
+#summary(regVolW)
 
 # Ocupacao
 # Efeito Aleatório
-regVolR = plm(log(ingresso_vendido) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados, index = c("clubem", "tempo"), model = "random", na.action = na.omit)
-summary(regVolR)
+#regVolR = plm(log(ingresso_vendido) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados, index = c("clubem", "tempo"), model = "random", na.action = na.omit)
+#summary(regVolR)
 
 # Efeito fixo
-regVolW = plm(log(ingresso_vendido) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados,index = c("clubem", "tempo"), model = "within")
-summary(regVolW)
+#regVolW = plm(log(ingresso_vendido) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + clássico, data = base_dados,index = c("clubem", "tempo"), model = "within")
+#summary(regVolW)
 
 ## O Jogo como individuo
+base_dados_painel$ticket_quadrado = base_dados_painel$ticket_medio^2
+#log renda
 # Efeito Aleatório
-regVolR = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido, data = base_dados, index = c("vs", "ano"), model = "random", na.action = na.omit)
-summary(regVolR)
+regVolR_ren = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_quadrado, data = base_dados_painel, index = c("vs", "ano"), model = "random", na.action = na.omit)
+summary(regVolR_ren)
 
 # Efeito fixo
-regVolW = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + jg_fds + ingresso_vendido, data = base_dados,index = c("vs", "tempo"), model = "within")
-summary(regVolW)
+regVolW_ren = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + jg_fds + ingresso_vendido  + ticket_quadrado, data = base_dados_painel,index = c("vs", "tempo"), model = "within")
+summary(regVolW_ren)
+summary(fixef(regVolW_ren))
+#teste de hausman
+h_test_ren <- phtest(regVolW_ren,regVolR_ren)
 
-## 
+#log publico
+# Efeito Aleatório
+regVolR_pgt = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + log(ticket_medio), data = base_dados_painel, index = c("vs", "ano"), model = "random", na.action = na.omit)
+summary(regVolR_pgt)
+
+# Efeito fixo
+regVolW_pgt = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + jg_fds + ingresso_vendido + ticket_quadrado, data = base_dados_painel,index = c("vs", "tempo"), model = "within")
+summary(regVolW_pgt)
+summary(fixef(regVolW_pgt))
+#teste de hausman
+h_test_pgt <- phtest(regVolW_pgt,regVolR_pgt)
+
+
+##  probit/logit ordenado para calcular probabilidades de resultado
+##tabela com resultados descritivos
+table(base_dados$resultado_time_mandante)
+
+
+
