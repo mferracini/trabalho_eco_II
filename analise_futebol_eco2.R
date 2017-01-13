@@ -120,8 +120,37 @@ h_test_pgt <- phtest(regVolW_pgt,regVolR_pgt)
 
 
 ##  probit/logit ordenado para calcular probabilidades de resultado
+# cria uma variavel q serve como proxy de poder ofensivo e defensivo
+base_dados$pwr_ofe = base_dados$man_gf_ini_rod - base_dados$vis_gt_ini_rod
+base_dados$pwr_def = base_dados$man_mean_gt_ini_r - base_dados$vis_mean_gf_ini_r
+base_dados$pwr_net = base_dados$pwr_ofe - base_dados$pwr_def
+
 ##tabela com resultados descritivos
+
 table(base_dados$resultado_time_mandante)
+
+
+logit_ord <- polr(resultado_time_mandante ~ diff_posicao_mandante + pwr_net+ clássico , data = base_dados, Hess=TRUE)
+summary(logit_ord)
+  #cria tabela com os coeficientes
+(tabela_coeficientes <- coef(summary(logit_ord)))
+  #calcula op_valo
+p_valor <- pnorm(abs(tabela_coeficientes[, "t value"]), lower.tail = FALSE) * 2
+  #concatena tabelas
+(tabela_final <- cbind(tabela_coeficientes, "p value" = p_valor))
+ #calcula o odds ratio e o IC
+OR_CI <- exp(cbind(OR = coef(logit_ord), ci = confint(logit_ord)))
+OR_CI
+
+dados_aux <- data.frame(
+  diff_posicao_mandante = rep(-19:19, 20),
+  clássico = rep(0:1 , each = 390),
+  pwr_net = rep(seq(from = -4, to = 4, length.out = 100),39))
+View(dados_aux)
+
+previsao <- cbind(dados_aux, predict(logit_ord, dados_aux, type = "probs"))
+head(previsao)
+View(previsao)
 
 
 
