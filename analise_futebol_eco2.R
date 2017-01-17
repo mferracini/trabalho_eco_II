@@ -28,6 +28,21 @@ base_dados<-read.csv(urlfile)
 
 View(base_dados)
 
+# Adiciona a tabela o PIB Munipal:
+pib = read.csv("PIBMunicipal_2010_2013.csv", strip.white=TRUE)
+
+pibCap2012 = vector(mode = "numeric", length = length(base_dados$cidade))
+for (i in 1:length(base_dados$cidade)){
+  a = grepl(base_dados$cidade[i], pib$unidade)
+  #base_dados$pib[i] = pib$capita2013[a]
+  if (any(a)){
+    pibCap2012[i] = pib$capita2012[a]
+  } else {
+    pibCap2012[i] = NA
+  }
+}
+
+base_dados =cbind(base_dados,pibCap2012)
 
 
 ## Modelo de contagem para numero de gols
