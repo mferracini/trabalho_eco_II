@@ -1,7 +1,8 @@
 # Bibliotecas utilizadas
 biblio = c("glm2", "stats", "dplyr", #chama o pacote para analise dos dados (modelos lineares generalizados)
            "pscl",                   #chama pacote para dados inflados em zero
-           "plm")                    #chama o pacote para analise de dados em painel
+           "plm",                    #chama o pacote para analise de dados em painel
+           "stargazer")              # pacote de tabelas
 
 # Verificar se os pacotes usados estao instalados, instala e os carrega
 for (i in biblio){
@@ -81,11 +82,11 @@ grf_gols_partida <- hist(base_dados$gs_partida)
 
 # Modelos de contagem para numero de gols
 #poisson
-gols_mandante<- glm(placarm_tn ~ diff_posicao_mandante + clássico + pagante, data = base_dados , family = poisson())
+gols_mandante<- glm(placarm_tn ~ diff_posicao_mandante + clássico , data = base_dados , family = poisson())
 summary(gols_mandante)
 graf.comp(gols_mandante)
 
-gols_visitante <- glm(placarv_tn ~ diff_posicao_visitante + clássico + pagante, data = base_dados , family = poisson())
+gols_visitante <- glm(placarv_tn ~ diff_posicao_mandante + clássico, data = base_dados , family = poisson())
 summary(gols_visitante)
 graf.comp(gols_visitante)
 
@@ -98,7 +99,7 @@ ajustado = as.numeric(gols_mandante_infl$model[[1]] - gols_mandante_infl$residua
 plot(ajustado, gols_mandante_infl$model[[1]])
 lines(c(1,20),c(1,20),col = "red")
 
-gols_visitante_infl <- zeroinfl(placarv_tn ~ diff_posicao_visitante , data = base_dados)
+gols_visitante_infl <- zeroinfl(placarv_tn ~ diff_posicao_mandante, data = base_dados)
 summary(gols_visitante_infl)
 
 #binomial negativa
@@ -109,9 +110,46 @@ ajustado = as.numeric(gols_mandante_nb$model[[1]] - gols_mandante_nb$residuals)
 plot(ajustado, gols_mandante_nb$model[[1]])
 lines(c(1,20),c(1,20),col = "red")
 
-gols_visitante_nb <- glm.nb(placarv_tn ~ diff_posicao_visitante , data = base_dados)
+gols_visitante_nb <- glm.nb(placarv_tn ~ diff_posicao_mandante , data = base_dados)
 summary(gols_visitante_nb)
 
+# Tabelas do modelo de contagem
+# Poisson
+dir.create("./tabelas", showWarnings = FALSE)
+sink(file = "./tabelas/cont_poisson.tex")
+stargazer(gols_mandante, gols_visitante, title="Contagem: Poisson",
+          align=TRUE, dep.var.labels=c("Gols Mandante","Gols Visitante"),
+          covariate.labels=c("Diferença de posições","Clássico","Pagantes"), 
+          omit.stat=c(), no.space=TRUE)
+sink()
+
+# Inflado
+sink(file = "./tabelas/cont_inflado.tex")
+stargazer(gols_mandante_infl, gols_visitante_infl, title="Contagem: Poisson Inflado de Zeros",
+          align=TRUE, dep.var.labels=c("Gols Mandante","Gols Visitante"),
+          covariate.labels=c("Diferença de posições","Clássico","Pagantes"), 
+          omit.stat=c(), no.space=TRUE)
+sink()
+
+# Binomial
+sink(file = "./tabelas/cont_binomial.tex")
+stargazer(gols_mandante_nb, gols_visitante_nb, title="Contagem: Binomial Negativa",
+          align=TRUE, dep.var.labels=c("Gols Mandante","Gols Visitante"),
+          covariate.labels=c("Diferença de posições","Clássico","Pagantes"), 
+          omit.stat=c(), no.space=TRUE)
+sink()
+
+# Todos
+dir.create("./tabelas", showWarnings = FALSE)
+sink(file = "./tabelas/contagem.tex")
+stargazer(gols_mandante, gols_visitante, 
+          gols_mandante_infl, gols_visitante_infl,
+          gols_mandante_nb, gols_visitante_nb,
+          title="Contagem",
+          align=FALSE, dep.var.labels=c("Gols Mandante","Gols Visitante"),
+          covariate.labels=c("Diferença de posições","Clássico","Pagante"), 
+          omit.stat=c(), no.space=TRUE)
+sink()
 
 # Modelo de dados em painel para renda e público
 base_dados$ticket_medio = base_dados$renda_bruta / base_dados$pagante
@@ -146,7 +184,7 @@ base_dados_painel$logPibCap2012 = log(base_dados_painel$pibCap2012)
 
 #log renda
 # Efeito Aleatório
-ren_rand = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + pibCap2012, data = base_dados_painel, index = c("vs", "ano"), model = "random")
+ren_rand = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada, data = base_dados_painel, index = c("vs", "ano"), model = "random")
 summary(ren_rand)
 graf.comp(ren_rand)
 
@@ -155,7 +193,7 @@ plot(ajustado, ren_rand$model[[1]])
 lines(c(1,20),c(1,20),col = "red")
 
 # Efeito fixo
-ren_fix = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + pibCap2012, data = base_dados_painel,index = c("vs", "ano"), model = "within")
+ren_fix = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada, data = base_dados_painel,index = c("vs", "ano"), model = "within")
 summary(ren_fix)
 summary(fixef(ren_fix))
 graf.comp(ren_fix)
@@ -165,18 +203,27 @@ h_test_ren <- phtest(ren_fix,ren_rand)
 
 #log publico
 # Efeito Aleatório
-pgt_rand = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + pibCap2012 + rodada, data = base_dados_painel, index = c("vs", "ano"), model = "random")
+pgt_rand = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada, data = base_dados_painel, index = c("vs", "ano"), model = "random")
 summary(pgt_rand)
 graf.comp(pgt_rand)
 
 # Efeito fixo
-pgt_fix = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + pibCap2012 + rodada, data = base_dados_painel,index = c("vs", "ano"), model = "within")
+pgt_fix = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada, data = base_dados_painel,index = c("vs", "ano"), model = "within")
 summary(pgt_fix)
 summary(fixef(pgt_fix))
 graf.comp(pgt_fix)
 
 #teste de hausman
 h_test_pgt <- phtest(pgt_fix,pgt_rand)
+
+sink(file = "./tabelas/painel.tex")
+stargazer(ren_rand, ren_fix, 
+          pgt_rand, pgt_fix,
+          title="Painel",
+          align=FALSE, dep.var.labels=c("log(Renda Bruta)", "log(Pagante)"),
+          covariate.labels=c("Pos.: Mandante Ini. da Rod.", "Pos.: Visitante Ini. da Rod.", "Final de Semana", "Ingressos Vendidos", "log(Ticket)", "PIB Municipal per Cap.", "Rodada"), 
+          omit.stat=c(), no.space=TRUE)
+sink()
 
 
 ##  probit/logit ordenado para calcular probabilidades de resultado
