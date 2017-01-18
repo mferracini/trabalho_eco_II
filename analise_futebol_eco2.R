@@ -22,6 +22,24 @@ cat("\014")
 
 #meu_dir<-getwd()
 
+
+### Funcao para os Graficos ###
+graf.comp = function(modelo){
+  x = modelo$model[[1]] 
+  y = as.numeric(x - modelo$residuals) 
+  nome = deparse(substitute(modelo))
+  dir.create("./graficos", showWarnings = FALSE)
+  pdf(paste("./graficos/", nome,".pdf", sep = ""),width = 8, height=5)
+  plot(x,y,
+       main = "",
+       xlab = "Observado",
+       ylab = "Estimado")
+  lines(c(1,20),c(1,20),
+        col = "red")
+  dev.off()
+}
+
+
 # Le o CSV com os dados
 urlfile<-'https://raw.githubusercontent.com/mferracini/trabalho_eco_II/master/base_final_jogos.csv'
 base_dados<-read.csv(urlfile)
@@ -44,6 +62,11 @@ for (i in 1:length(base_dados$cidade)){
 
 base_dados =cbind(base_dados,pibCap2012)
 
+# Corrigindo posicao mandante inicio da rodada de 0 para 20
+base_dados$mandante_posicao_inicio_rodada[base_dados$mandante_posicao_inicio_rodada == 0] = 20
+base_dados$Visitante_posicao_inicio_rodada[base_dados$Visitante_posicao_inicio_rodada == 0] = 20
+
+
 
 ## Modelo de contagem para numero de gols
 
@@ -60,14 +83,20 @@ grf_gols_partida <- hist(base_dados$gs_partida)
 #poisson
 gols_mandante<- glm(placarm_tn ~ diff_posicao_mandante + clássico + pagante, data = base_dados , family = poisson())
 summary(gols_mandante)
+graf.comp(gols_mandante)
 
 gols_visitante <- glm(placarv_tn ~ diff_posicao_visitante + clássico + pagante, data = base_dados , family = poisson())
 summary(gols_visitante)
+graf.comp(gols_visitante)
 
 #modelos inflado em zero
 
 gols_mandante_infl<- zeroinfl(placarm_tn ~ diff_posicao_mandante , data = base_dados)
 summary(gols_mandante_infl)
+
+ajustado = as.numeric(gols_mandante_infl$model[[1]] - gols_mandante_infl$residuals) 
+plot(ajustado, gols_mandante_infl$model[[1]])
+lines(c(1,20),c(1,20),col = "red")
 
 gols_visitante_infl <- zeroinfl(placarv_tn ~ diff_posicao_visitante , data = base_dados)
 summary(gols_visitante_infl)
@@ -76,9 +105,12 @@ summary(gols_visitante_infl)
 gols_mandante_nb<- glm.nb(placarm_tn ~ diff_posicao_mandante , data = base_dados)
 summary(gols_mandante_nb)
 
+ajustado = as.numeric(gols_mandante_nb$model[[1]] - gols_mandante_nb$residuals) 
+plot(ajustado, gols_mandante_nb$model[[1]])
+lines(c(1,20),c(1,20),col = "red")
+
 gols_visitante_nb <- glm.nb(placarv_tn ~ diff_posicao_visitante , data = base_dados)
 summary(gols_visitante_nb)
-
 
 
 # Modelo de dados em painel para renda e público
@@ -87,7 +119,7 @@ base_dados$tempo = 100*base_dados$ano + 2*base_dados$rodada
 base_dados$vs = as.factor(paste(base_dados$clubem,base_dados$clubev))
 base_dados$rod_time = as.factor(paste(base_dados$clubem,base_dados$rodada))
 base_dados_painel = subset(base_dados, !is.na(pagante))
-
+base_dados_painel = subset(base_dados_painel, !is.na(pibCap2012))
 
 # Pagante
 # Efeito Aleatório
@@ -109,29 +141,42 @@ base_dados_painel = subset(base_dados, !is.na(pagante))
 
 ## O Jogo como individuo
 base_dados_painel$ticket_quadrado = base_dados_painel$ticket_medio^2
+base_dados_painel$ticket_log = log(base_dados_painel$ticket_medio)
+base_dados_painel$logPibCap2012 = log(base_dados_painel$pibCap2012)
+
 #log renda
 # Efeito Aleatório
-regVolR_ren = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_quadrado, data = base_dados_painel, index = c("vs", "ano"), model = "random", na.action = na.omit)
-summary(regVolR_ren)
+ren_rand = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + pibCap2012, data = base_dados_painel, index = c("vs", "ano"), model = "random")
+summary(ren_rand)
+graf.comp(ren_rand)
+
+ajustado = as.numeric(ren_rand$model[[1]] - ren_rand$residuals) 
+plot(ajustado, ren_rand$model[[1]])
+lines(c(1,20),c(1,20),col = "red")
 
 # Efeito fixo
-regVolW_ren = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + jg_fds + ingresso_vendido  + ticket_quadrado, data = base_dados_painel,index = c("vs", "tempo"), model = "within")
-summary(regVolW_ren)
-summary(fixef(regVolW_ren))
+ren_fix = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + pibCap2012, data = base_dados_painel,index = c("vs", "ano"), model = "within")
+summary(ren_fix)
+summary(fixef(ren_fix))
+graf.comp(ren_fix)
+
 #teste de hausman
-h_test_ren <- phtest(regVolW_ren,regVolR_ren)
+h_test_ren <- phtest(ren_fix,ren_rand)
 
 #log publico
 # Efeito Aleatório
-regVolR_pgt = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + log(ticket_medio), data = base_dados_painel, index = c("vs", "ano"), model = "random", na.action = na.omit)
-summary(regVolR_pgt)
+pgt_rand = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + pibCap2012 + rodada, data = base_dados_painel, index = c("vs", "ano"), model = "random")
+summary(pgt_rand)
+graf.comp(pgt_rand)
 
 # Efeito fixo
-regVolW_pgt = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada + jg_fds + ingresso_vendido + ticket_quadrado, data = base_dados_painel,index = c("vs", "tempo"), model = "within")
-summary(regVolW_pgt)
-summary(fixef(regVolW_pgt))
+pgt_fix = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + pibCap2012 + rodada, data = base_dados_painel,index = c("vs", "ano"), model = "within")
+summary(pgt_fix)
+summary(fixef(pgt_fix))
+graf.comp(pgt_fix)
+
 #teste de hausman
-h_test_pgt <- phtest(regVolW_pgt,regVolR_pgt)
+h_test_pgt <- phtest(pgt_fix,pgt_rand)
 
 
 ##  probit/logit ordenado para calcular probabilidades de resultado
@@ -166,6 +211,4 @@ View(dados_aux)
 previsao <- cbind(dados_aux, predict(logit_ord, dados_aux, type = "probs"))
 head(previsao)
 View(previsao)
-
-
 
