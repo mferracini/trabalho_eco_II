@@ -43,11 +43,11 @@ graf.comp = function(modelo){
 # Le o CSV com os dados
 urlfile<-'https://raw.githubusercontent.com/mferracini/trabalho_eco_II/master/base_final_jogos.csv'
 base_dados<-read.csv(urlfile)
-
+pib_url <-'https://raw.githubusercontent.com/mferracini/trabalho_eco_II/master/PIBMunicipal_2010_2013.csv'
 View(base_dados)
 
 # Adiciona a tabela o PIB Munipal:
-pib = read.csv("PIBMunicipal_2010_2013.csv", strip.white=TRUE)
+pib = read.csv(pib_url, strip.white=TRUE)
 
 pibCap2012 = vector(mode = "numeric", length = length(base_dados$cidade))
 for (i in 1:length(base_dados$cidade)){
@@ -187,20 +187,21 @@ base_dados$pwr_net = base_dados$pwr_ofe - base_dados$pwr_def
 
 ##tabela com resultados descritivos
 
-table(base_dados$resultado_time_mandante)
+table(base_dados$fator_resultado)
 
 
-logit_ord <- polr(resultado_time_mandante ~ diff_posicao_mandante + pwr_net+ clássico , data = base_dados, Hess=TRUE)
-summary(logit_ord)
+probit_ord <- polr(as.ordered(fator_resultado) ~ diff_posicao_mandante + pwr_net+ clássico , data = base_dados, method="probit", Hess=TRUE)
+summary(probit_ord)
   #cria tabela com os coeficientes
-(tabela_coeficientes <- coef(summary(logit_ord)))
+(tabela_coeficientes <- coef(summary(probit_ord)))
   #calcula op_valo
 p_valor <- pnorm(abs(tabela_coeficientes[, "t value"]), lower.tail = FALSE) * 2
   #concatena tabelas
 (tabela_final <- cbind(tabela_coeficientes, "p value" = p_valor))
- #calcula o odds ratio e o IC
-OR_CI <- exp(cbind(OR = coef(logit_ord), ci = confint(logit_ord)))
-OR_CI
+ 
+#calcula o odds ratio e o IC
+#OR_CI <- exp(cbind(OR = coef(logit_ord), ci = confint(logit_ord)))
+#OR_CI ---- OR apenas para logit
 
 dados_aux <- data.frame(
   diff_posicao_mandante = rep(-19:19, 20),
@@ -208,7 +209,10 @@ dados_aux <- data.frame(
   pwr_net = rep(seq(from = -4, to = 4, length.out = 100),39))
 View(dados_aux)
 
-previsao <- cbind(dados_aux, predict(logit_ord, dados_aux, type = "probs"))
-head(previsao)
-View(previsao)
+previsao_base <- cbind(base_dados, predict(probit_ord, base_dados, type = "probs"))
+head(previsao_base)
+View(previsao_base)
 
+previsao_aux <- cbind(dados_aux, predict(probit_ord, dados_aux, type = "probs"))
+head(previsao_aux)
+View(previsao_aux)
