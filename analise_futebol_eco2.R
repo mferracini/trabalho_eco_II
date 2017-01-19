@@ -62,6 +62,11 @@ for (i in 1:length(base_dados$cidade)){
 }
 base_dados =cbind(base_dados,pibCap2012)
 
+# cria uma variavel q serve como proxy de poder ofensivo e defensivo
+base_dados$pwr_ofe = base_dados$man_gf_ini_rod - base_dados$vis_gt_ini_rod
+base_dados$pwr_def = base_dados$man_mean_gt_ini_r - base_dados$vis_mean_gf_ini_r
+base_dados$pwr_net = base_dados$pwr_ofe - base_dados$pwr_def
+
 # Adiciona o resultado dos tres ultimos jogos somados
 tres = function(timep){
   n = nrow(base_dados)
@@ -114,35 +119,35 @@ grf_gols_partida <- hist(base_dados$gs_partida)
 
 # Modelos de contagem para numero de gols
 #poisson
-gols_mandante<- glm(placarm_tn ~ diff_posicao_mandante + clássico , data = base_dados , family = poisson())
+gols_mandante<- glm(placarm_tn ~ diff_posicao_mandante + pwr_net+ clássico + result_3ult_m , data = base_dados , family = poisson())
 summary(gols_mandante)
 graf.comp(gols_mandante)
 
-gols_visitante <- glm(placarv_tn ~ diff_posicao_mandante + clássico, data = base_dados , family = poisson())
+gols_visitante <- glm(placarv_tn ~ diff_posicao_mandante + pwr_net+ clássico + result_3ult_m, data = base_dados , family = poisson())
 summary(gols_visitante)
 graf.comp(gols_visitante)
 
 #modelos inflado em zero
 
-gols_mandante_infl<- zeroinfl(placarm_tn ~ diff_posicao_mandante , data = base_dados)
+gols_mandante_infl<- zeroinfl(placarm_tn ~ diff_posicao_mandante + pwr_net+ clássico + result_3ult_m , data = base_dados)
 summary(gols_mandante_infl)
 
 ajustado = as.numeric(gols_mandante_infl$model[[1]] - gols_mandante_infl$residuals) 
 plot(ajustado, gols_mandante_infl$model[[1]])
 lines(c(1,20),c(1,20),col = "red")
 
-gols_visitante_infl <- zeroinfl(placarv_tn ~ diff_posicao_mandante, data = base_dados)
+gols_visitante_infl <- zeroinfl(placarv_tn ~ diff_posicao_mandante + pwr_net+ clássico, data = base_dados)
 summary(gols_visitante_infl)
 
 #binomial negativa
-gols_mandante_nb<- glm.nb(placarm_tn ~ diff_posicao_mandante , data = base_dados)
+gols_mandante_nb<- glm.nb(placarm_tn ~ diff_posicao_mandante + pwr_net+ clássico + result_3ult_m , data = base_dados)
 summary(gols_mandante_nb)
 
 ajustado = as.numeric(gols_mandante_nb$model[[1]] - gols_mandante_nb$residuals) 
 plot(ajustado, gols_mandante_nb$model[[1]])
 lines(c(1,20),c(1,20),col = "red")
 
-gols_visitante_nb <- glm.nb(placarv_tn ~ diff_posicao_mandante , data = base_dados)
+gols_visitante_nb <- glm.nb(placarv_tn ~ diff_posicao_mandante + pwr_net+ clássico + result_3ult_m , data = base_dados)
 summary(gols_visitante_nb)
 
 # Tabelas do modelo de contagem
@@ -174,8 +179,7 @@ sink()
 # Todos
 dir.create("./tabelas", showWarnings = FALSE)
 sink(file = "./tabelas/contagem.tex")
-stargazer(gols_mandante, gols_visitante, 
-          gols_mandante_infl, gols_visitante_infl,
+stargazer(gols_mandante, gols_visitante,
           gols_mandante_nb, gols_visitante_nb,
           title="Contagem",
           align=FALSE, dep.var.labels=c("Gols Mandante","Gols Visitante"),
@@ -216,7 +220,7 @@ base_dados_painel$logPibCap2012 = log(base_dados_painel$pibCap2012)
 
 #log renda
 # Efeito Aleatório
-ren_rand = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada, data = base_dados_painel, index = c("vs", "ano"), model = "random")
+ren_rand = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada + result_3ult_m, data = base_dados_painel, index = c("vs", "ano"), model = "random")
 summary(ren_rand)
 graf.comp(ren_rand)
 
@@ -225,7 +229,7 @@ plot(ajustado, ren_rand$model[[1]])
 lines(c(1,20),c(1,20),col = "red")
 
 # Efeito fixo
-ren_fix = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada, data = base_dados_painel,index = c("vs", "ano"), model = "within")
+ren_fix = plm(log(renda_bruta) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada + result_3ult_m, data = base_dados_painel,index = c("vs", "ano"), model = "within")
 summary(ren_fix)
 summary(fixef(ren_fix))
 graf.comp(ren_fix)
@@ -235,12 +239,12 @@ h_test_ren <- phtest(ren_fix,ren_rand)
 
 #log publico
 # Efeito Aleatório
-pgt_rand = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada, data = base_dados_painel, index = c("vs", "ano"), model = "random")
+pgt_rand = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ticket_log + log(pibCap2012) + rodada + result_3ult_m, data = base_dados_painel, index = c("vs", "ano"), model = "random")
 summary(pgt_rand)
 graf.comp(pgt_rand)
 
 # Efeito fixo
-pgt_fix = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds + ingresso_vendido + ticket_log + log(pibCap2012) + rodada, data = base_dados_painel,index = c("vs", "ano"), model = "within")
+pgt_fix = plm(log(pagante) ~ mandante_posicao_inicio_rodada + Visitante_posicao_inicio_rodada  + jg_fds  + ticket_log + log(pibCap2012) + rodada + result_3ult_m, data = base_dados_painel,index = c("vs", "ano"), model = "within")
 summary(pgt_fix)
 summary(fixef(pgt_fix))
 graf.comp(pgt_fix)
@@ -249,20 +253,15 @@ graf.comp(pgt_fix)
 h_test_pgt <- phtest(pgt_fix,pgt_rand)
 
 sink(file = "./tabelas/painel.tex")
-stargazer(ren_rand, ren_fix, 
-          pgt_rand, pgt_fix,
+stargazer(pgt_rand, pgt_fix,
           title="Painel",
-          align=FALSE, dep.var.labels=c("log(Renda Bruta)", "log(Pagante)"),
-          covariate.labels=c("Pos.: Mandante Ini. da Rod.", "Pos.: Visitante Ini. da Rod.", "Final de Semana", "Ingressos Vendidos", "log(Ticket)", "PIB Municipal per Cap.", "Rodada"), 
+          align=FALSE, dep.var.labels=c("log(Pagante)"),
+          covariate.labels=c("Pos.: Mandante Ini. da Rod.", "Pos.: Visitante Ini. da Rod.", "Final de Semana", "log(Ticket)", "PIB Municipal per Cap.", "Rodada", "Resultado 3 últimos"), 
           omit.stat=c(), no.space=TRUE)
 sink()
 
 
 ##  probit/logit ordenado para calcular probabilidades de resultado
-# cria uma variavel q serve como proxy de poder ofensivo e defensivo
-base_dados$pwr_ofe = base_dados$man_gf_ini_rod - base_dados$vis_gt_ini_rod
-base_dados$pwr_def = base_dados$man_mean_gt_ini_r - base_dados$vis_mean_gf_ini_r
-base_dados$pwr_net = base_dados$pwr_ofe - base_dados$pwr_def
 
 ##tabela com resultados descritivos
 
@@ -283,9 +282,10 @@ p_valor <- pnorm(abs(tabela_coeficientes[, "t value"]), lower.tail = FALSE) * 2
 #OR_CI ---- OR apenas para logit
 
 dados_aux <- data.frame(
-  diff_posicao_mandante = rep(-19:19, 20),
-  clássico = rep(0:1 , each = 390),
-  pwr_net = rep(seq(from = -4, to = 4, length.out = 100),39))
+  diff_posicao_mandante = rep(-19:19, 20*7),
+  clássico = rep(0:1 , each = 390*7),
+  pwr_net = rep(seq(from = -4, to = 4, length.out = 100),39*7),
+  result_3ult_m = rep(-3:3, each = 390))
 View(dados_aux)
 
 previsao_base <- cbind(base_dados, predict(probit_ord, base_dados, type = "probs"))
@@ -296,6 +296,16 @@ previsao_aux <- cbind(dados_aux, predict(probit_ord, dados_aux, type = "probs"))
 head(previsao_aux)
 View(previsao_aux)
 
+# Tabela
+sink(file = "./tabelas/probit.tex")
+stargazer(probit_ord,
+          title="Probit Ordenado",
+          align=FALSE, dep.var.labels=c("Resultado do Jogo"),
+          covariate.labels=c("Diferença de Posição", "Poder Ofen. e Def.","Clássico", "Resultado 3 últ."), 
+          omit.stat=c(), no.space=TRUE)
+sink()
+
+
 # Matriz de Confusao
 estimado = probit_ord$fitted.values
 observado = probit_ord$model[,1]
@@ -304,7 +314,7 @@ previsto = vector(mode = "numeric", length = length(observado))
 for (i in 1:length(observado)){
   previsto[i] = which.max(as.numeric(estimado[i,]))-2
 }
-previsto = as.factor(previsto, labels = c("-1","0","1"))
+previsto = as.factor(previsto)
 
 # Matriz de Confusao para vitoria
 estimado = probit_ord$fitted.values
@@ -315,9 +325,17 @@ for (i in 1:length(observado)){
   previsto[i] = as.numeric(as.numeric(estimado[i,3])>=0.5)
 }
 previsto = as.factor(previsto)
-table(observado,previsto)
+conf1 = table(observado,previsto)
 
 c = as.numeric(estimado[,1])<=as.numeric(estimado[,2])
-table(c,observado)
+table(observado,c)
+
+sink(file = "./tabelas/probit.tex")
+stargazer(probit_ord,
+          title="Probit Ordenado",
+          align=FALSE, dep.var.labels=c("Resultado do Jogo"),
+          covariate.labels=c("Diferença de Posição", "Poder Ofen. e Def.","Clássico", "Resultado 3 últ."), 
+          omit.stat=c(), no.space=TRUE)
+sink()
 
 
