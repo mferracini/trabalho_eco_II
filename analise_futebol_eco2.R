@@ -60,8 +60,40 @@ for (i in 1:length(base_dados$cidade)){
     pibCap2012[i] = NA
   }
 }
-
 base_dados =cbind(base_dados,pibCap2012)
+
+# Adiciona o resultado dos tres ultimos jogos somados
+tres = function(timep){
+  n = nrow(base_dados)
+  resultado = rep(0, n)
+  for (i in n:1){
+    if (base_dados$rodada[i] < 3){
+      resultado[i] = NA
+    }else{
+      time = timep[i]
+      cont = 0
+      j = i - 1
+      while (cont != 3 & j != 1){
+        timem = base_dados$clubem[j]
+        timev = base_dados$clubev[j]
+        if (timem == time){
+          cont = cont + 1
+          resultado[i] = resultado[i] + as.numeric(base_dados$fator_resultado[j])
+        }
+        if (timev == time){
+          cont = cont + 1
+          resultado[i] = resultado[i] - as.numeric(base_dados$fator_resultado[j])
+        }
+        j = j - 1
+      }
+    }
+  }
+  return(resultado)
+}
+#base_dados$result_3ult_m = resultado
+base_dados$result_3ult_m = tres(base_dados$clubem)
+base_dados$result_3ult_v = tres(base_dados$clubev)
+
 
 # Corrigindo posicao mandante inicio da rodada de 0 para 20
 base_dados$mandante_posicao_inicio_rodada[base_dados$mandante_posicao_inicio_rodada == 0] = 20
@@ -237,7 +269,7 @@ base_dados$pwr_net = base_dados$pwr_ofe - base_dados$pwr_def
 table(base_dados$fator_resultado)
 
 
-probit_ord <- polr(as.ordered(fator_resultado) ~ diff_posicao_mandante + pwr_net+ clássico , data = base_dados, method="probit", Hess=TRUE)
+probit_ord <- polr(as.ordered(fator_resultado) ~ diff_posicao_mandante + pwr_net+ clássico + result_3ult_m, data = base_dados, method="probit", Hess=TRUE)
 summary(probit_ord)
   #cria tabela com os coeficientes
 (tabela_coeficientes <- coef(summary(probit_ord)))
@@ -263,3 +295,29 @@ View(previsao_base)
 previsao_aux <- cbind(dados_aux, predict(probit_ord, dados_aux, type = "probs"))
 head(previsao_aux)
 View(previsao_aux)
+
+# Matriz de Confusao
+estimado = probit_ord$fitted.values
+observado = probit_ord$model[,1]
+
+previsto = vector(mode = "numeric", length = length(observado))
+for (i in 1:length(observado)){
+  previsto[i] = which.max(as.numeric(estimado[i,]))-2
+}
+previsto = as.factor(previsto, labels = c("-1","0","1"))
+
+# Matriz de Confusao para vitoria
+estimado = probit_ord$fitted.values
+observado = probit_ord$model[,1]
+
+previsto = vector(mode = "numeric", length = length(observado))
+for (i in 1:length(observado)){
+  previsto[i] = as.numeric(as.numeric(estimado[i,3])>=0.5)
+}
+previsto = as.factor(previsto)
+table(observado,previsto)
+
+c = as.numeric(estimado[,1])<=as.numeric(estimado[,2])
+table(c,observado)
+
+
